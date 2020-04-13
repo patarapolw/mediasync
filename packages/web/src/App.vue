@@ -7,7 +7,7 @@
         span Sync
     template(slot="start")
       b-navbar-item(tag="router-link" to="/play") Play
-      b-navbar-item(tag="router-link" to="/edit") Edit
+      b-navbar-item(tag="router-link" to="/edit") Create
       b-navbar-item(tag="router-link" to="/browse") Browse
       b-navbar-item(href="https://github.com/patarapolw/mediasync" target="_blank") GitHub
     template(slot="end")
