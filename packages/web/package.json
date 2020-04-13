@@ -1,11 +1,13 @@
 {
-  "name": "web",
+  "name": "@mediasync/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "preinstall": "check-npm-yarn",
-    "serve": "vue-cli-service serve",
-    "build": "vue-cli-service build"
+    "build": "vue-cli-service build",
+    "watch": "vue-cli-service build --watch",
+    "firebase": "firebase serve",
+    "deploy": "firebase deploy"
   },
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^1.2.28",
@@ -13,13 +15,19 @@
     "@fortawesome/free-regular-svg-icons": "^5.13.0",
     "@fortawesome/free-solid-svg-icons": "^5.13.0",
     "@fortawesome/vue-fontawesome": "^0.1.9",
+    "@types/codemirror": "^0.0.91",
     "buefy": "^0.8.15",
+    "codemirror": "^5.52.2",
     "core-js": "^3.6.4",
+    "dayjs": "^1.8.24",
     "firebase": "^7.14.0",
+    "firebaseui": "^4.5.0",
     "vue": "^2.6.11",
     "vue-class-component": "^7.2.3",
+    "vue-codemirror": "^4.0.6",
     "vue-property-decorator": "^8.4.1",
-    "vue-router": "^3.1.6"
+    "vue-router": "^3.1.6",
+    "vuex": "^3.1.3"
   },
   "devDependencies": {
     "@vue/cli-plugin-babel": "~4.3.0",
@@ -27,6 +35,7 @@
     "@vue/cli-plugin-typescript": "~4.3.0",
     "@vue/cli-service": "~4.3.0",
     "pug": "^2.0.4",
+    "pug-plain-loader": "^1.0.0",
     "sass": "^1.26.3",
     "sass-loader": "^8.0.2",
     "typescript": "~3.8.3",
