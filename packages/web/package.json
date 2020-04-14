@@ -5,7 +5,8 @@
   "scripts": {
     "preinstall": "check-npm-yarn",
     "build": "vue-cli-service build",
-    "fb:watch": "vue-cli-service build --watch",
+    "watch": "vue-cli-service build --watch",
+    "serve": "vue-cli-service serve",
     "fb:serve": "firebase serve",
     "deploy": "firebase deploy"
   },

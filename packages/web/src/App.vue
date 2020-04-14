@@ -34,7 +34,7 @@ let firebaseUI: authUI.AuthUI | null
 
 @Component
 export default class App extends Vue {
-isDrawer = false
+  isDrawer = false
   isLoginModal = false
 
   get user () {
@@ -43,6 +43,21 @@ isDrawer = false
 
   get isAuthenticated () {
     return this.$store.state.lastStatus !== 401
+  }
+
+  mounted () {
+    this.onUserChange()
+  }
+
+  @Watch('user')
+  onUserChange () {
+    if (!this.user) {
+      setTimeout(() => {
+        this.isLoginModal = !this.user
+      }, 2000)
+    } else {
+      this.isLoginModal = false
+    }
   }
 
   @Watch('isLoginModal')

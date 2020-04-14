@@ -61,16 +61,38 @@ export default class Play extends Vue {
   }
 
   mounted () {
-    const w = this.wavesurfer = WaveSurfer.create({
-      container: this.$refs.player as HTMLElement
-    })
-    w.on('ready', () => {
-      w.play()
-    })
-    w.on('finish', () => {
-      this.currentTrack++
-      this.doPlay()
-    })
+    this.initWavesurfer()
+    window.addEventListener('mousemove', this.initWavesurfer)
+    window.addEventListener('scroll', this.initWavesurfer)
+  }
+
+  beforeDestroy () {
+    if (this.wavesurfer) {
+      this.wavesurfer.destroy()
+    }
+
+    window.removeEventListener('mousemove', this.initWavesurfer)
+    window.removeEventListener('scroll', this.initWavesurfer)
+  }
+
+  async initWavesurfer () {
+    if (!this.wavesurfer) {
+      const w = this.wavesurfer = WaveSurfer.create({
+        container: this.$refs.player as HTMLElement
+      })
+      w.on('finish', () => {
+        this.currentTrack++
+        this.doPlay()
+      })
+
+      return new Promise((resolve, reject) => {
+        w.on('ready', () => {
+          w.play()
+          resolve()
+        })
+        w.on('error', reject)
+      })
+    }
   }
 
   @Watch('dropFiles')
@@ -146,13 +168,20 @@ export default class Play extends Vue {
     }))
   }
 
-  doPlay (i?: number) {
+  async doPlay (i?: number) {
     this.currentTrack = i = i || this.currentTrack
+    await this.initWavesurfer()
 
     if (this.wavesurfer && this.playlist[i]) {
       const { key, url } = this.playlist[i]
+      console.log(key, url, i)
 
       this.wavesurfer.load(url)
+      this.wavesurfer.on('ready', () => {
+        if (this.wavesurfer) {
+          this.wavesurfer.play()
+        }
+      })
 
       firebase.firestore().collection('metadata').doc(key).update({
         _updatedAt: new Date()

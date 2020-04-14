@@ -8,7 +8,7 @@ section.editor
   .columns
     .column(
       style="height: calc(100vh - 60px); overflow-y: scroll;"
-      :class="hasPreview ? ($mq === 'lg' ? 'is-6' : 'd-none') : 'is-12'"
+      :class="hasPreview ? 'is-6-desktop is-hidden-mobile' : 'is-12'"
       @scroll="onScroll"
     )
       b-collapse(class="card" animation="slide" aria-id="requiredHeader" style="margin-bottom: 1em;")
@@ -28,7 +28,9 @@ section.editor
             )
       codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
     .column.is-6(v-show="hasPreview")
-      iframe(frameborder="0" style="height: 100%; width: 100%; padding: 1em;" ref="output")
+      div(frameborder="0" style="height: 100%; width: 100%; padding: 1em;")
+        div(ref="audio")
+        .content(ref="output")
 </template>
 
 <script lang="ts">
@@ -39,6 +41,7 @@ import axios, { AxiosInstance } from 'axios'
 import firebase from 'firebase/app'
 import hbs from 'handlebars'
 import * as t from 'runtypes'
+import WaveSurfer from 'wavesurfer.js'
 
 import 'firebase/storage'
 import 'firebase/firebase-firestore'
@@ -77,6 +80,7 @@ export default class Edit extends Vue {
   name = ''
 
   ctx = {} as any
+  isMobile = matchMedia('(max-width: 800px)').matches
 
   readonly matter = new Matter()
 
@@ -92,21 +96,12 @@ export default class Edit extends Vue {
     return (this.$refs.codemirror as any).codemirror
   }
 
-  get outputWindow () {
-    const output = this.$refs.output as HTMLIFrameElement
-    if (output) {
-      return output.contentWindow
-    }
-
-    return null
-  }
-
   get canSave () {
     return this.name && this.isEdited
   }
 
   created () {
-    this.hasPreview = !matchMedia('(max-width: 800px)').matches
+    this.hasPreview = !this.isMobile
     this.load()
   }
 
@@ -202,6 +197,7 @@ export default class Edit extends Vue {
         await this.onCtxChange(header.ref || {})
 
         this.markdown = this.matter.stringify(content, header)
+        this.name = name
 
         this.$set(this, 'tag', tag)
         isSet = true
@@ -216,6 +212,7 @@ export default class Edit extends Vue {
 
     setTimeout(() => {
       this.isEdited = false
+      this.onAudioRef()
     }, 100)
   }
 
@@ -228,14 +225,14 @@ export default class Edit extends Vue {
     let id = header.id
     delete header.id
 
-    const content = {
+    const content = nullifyObject({
       markdown,
       name: this.name,
       tag: this.tag,
       _rand: Math.random(),
       _updatedAt: new Date(),
       ...header
-    }
+    })
 
     if (!this.id) {
       /**
@@ -257,7 +254,7 @@ export default class Edit extends Vue {
       await firebase.firestore().collection('metadata').doc(this.id).update(content)
     }
 
-    await firebase.firestore().collection('tag').doc('all').update({
+    await firebase.firestore().collection('tag').doc('all').set({
       tags: this.allTags
     })
 
@@ -270,29 +267,41 @@ export default class Edit extends Vue {
 
   onCmCodeChange () {
     this.isEdited = true
+    const outputRef = this.$refs.output as HTMLDivElement
 
-    if (this.outputWindow) {
+    if (outputRef) {
       const { header, content } = this.matter.parse(this.markdown)
-      const document = this.outputWindow.document
-      this.makeHtml.patch(document.body, hbs.compile(content)({
+      this.makeHtml.patch(outputRef, hbs.compile(content)({
         ...(this.name ? {
           [this.name]: content
         } : {}),
         ...this.ctx
       }))
-      this.outputWindow.document.querySelectorAll('script:not([data-loaded])').forEach((el) => {
-        el.setAttribute('data-loaded', '1')
-
-        const el1 = el.cloneNode(true) as HTMLScriptElement
-        el.replaceWith(el1)
-      })
     }
   }
 
-  @Watch('deck')
+  @Watch('name')
   @Watch('tag', { deep: true })
   onHeaderChange () {
     this.isEdited = true
+  }
+
+  @Watch('$refs.audio')
+  onAudioRef () {
+    const audio = this.$refs.audio as HTMLDivElement
+
+    if (audio && this.matter.header.type === 'audio' && this.matter.header.url) {
+      const w = WaveSurfer.create({
+        container: audio
+      })
+      w.on('finish', () => {
+        w.play()
+      })
+      w.on('ready', () => {
+        w.play()
+      })
+      w.load(this.matter.header.url)
+    }
   }
 
   async ctxReload () {
@@ -300,6 +309,8 @@ export default class Edit extends Vue {
     if (this.name) {
       this.ctx[this.name] = content
     }
+
+    this.onAudioRef()
 
     await this.onCtxChange(header.ref)
   }

@@ -30,6 +30,8 @@ export class Matter {
   }
 
   stringify (content: string, header: any) {
+    content = content || '\n'
+
     if (header && typeof header === 'object' && Object.keys(header).length > 0) {
       const doReplace = (obj: any): any => {
         if (obj) {

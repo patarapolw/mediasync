@@ -14,7 +14,7 @@
       b-navbar-item(tag="div")
         .buttons
           router-link.button(to="/edit") New
-          button.button(@click="load") Reload
+          button.button(@click="load()") Reload
           b-dropdown(aria-role="list" position="is-bottom-left")
             button.button(:disabled="checked.length === 0" slot="trigger")
               span(style="margin-right: 0.5em") Batch Edit
@@ -30,19 +30,15 @@
         :loading="isLoading"
         detailed
 
+        sticky-header
+        :height="tableHeight"
+
         :selected.sync="selected"
         @select="openItem($event)"
 
         checkable
         :checked-rows.sync="checked"
         @check="onTableChecked"
-
-        paginated
-        backend-pagination
-        :total="count"
-        :per-page="perPage"
-        @page-change="onPageChanged"
-        :current-page="page"
 
         backend-sorting
         :default-sort="[sort.key, sort.type]"
@@ -104,7 +100,7 @@ export default class Query extends Vue {
   filteredTags: string[] = []
   tagList: string[] = []
   sort = {
-    key: 'updatedAt',
+    key: '_updatedAt',
     type: 'desc'
   }
 
@@ -120,15 +116,22 @@ export default class Query extends Vue {
     { label: 'Tag', field: 'tag', width: 200 }
   ]
 
-  perPage = 5
+  perPage = 20
   ctx: any = {}
 
-  get page () {
-    return parseInt(normalizeArray(this.$route.query.page) || '1')
-  }
+  tableHeight = 300
 
-  mounted () {
+  async mounted () {
     this.load()
+
+    const qTable = this.$el.querySelector('.query-table .table-wrapper') as HTMLDivElement
+    this.tableHeight = innerHeight - qTable.getBoundingClientRect().top - 10
+
+    qTable.addEventListener('scroll', (evt) => {
+      if (qTable.scrollTop + qTable.clientHeight === qTable.scrollHeight) {
+        this.load()
+      }
+    })
   }
 
   onSearch () {
@@ -148,47 +151,43 @@ export default class Query extends Vue {
     }))
   }
 
-  @Watch('$route.query.page')
-  @Watch('$route.query.q')
-  async load () {
+  async load (reset?: boolean) {
     this.$set(this, 'checked', [])
     const q = normalizeArray(this.$route.query.q) || ''
 
-    const docs = await parseQ(firebase.firestore().collection('metadata'), q)
-      .orderBy('_updatedAt', 'desc')
-      .startAt((this.page - 1) * this.perPage)
-      .endBefore(this.page * this.perPage).get()
+    let c = parseQ(firebase.firestore().collection('metadata'), q)
+      .orderBy(this.sort.key, this.sort.type as any)
 
-    this.items = []
+    if (this.items.length > 0) {
+      c = c.startAfter(this.items[this.items.length - 1][this.sort.key])
+    }
+
+    const docs = await c
+      .limit(this.perPage)
+      .get()
+
+    if (reset) {
+      this.items = []
+    }
 
     docs.forEach((d) => {
+      const data = d.data()
       this.items.push({
         id: d.id,
-        ...d.data()
+        ...data
       })
     })
 
     await Promise.all(this.items
       .map((el) => this.onCtxChange(deepMerge([el.id], el.ref))))
 
-    this.count = this.page * this.perPage + 1
-
     this.$set(this, 'items', this.items)
-  }
-
-  onPageChanged (p: number) {
-    this.$router.push({
-      query: {
-        ...this.$route.query,
-        page: p.toString()
-      }
-    })
   }
 
   onSort (key: string, type: 'desc' | 'asc') {
     this.sort.key = key
     this.sort.type = (type as string)
-    this.load()
+    this.load(true)
   }
 
   async doDelete () {
@@ -204,28 +203,28 @@ export default class Query extends Vue {
         }))
 
         setTimeout(() => {
-          this.load()
+          this.load(true)
         }, 100)
       }
     })
   }
 
   async getFilteredTags (text: string) {
-    // if (!this.allTags) {
-    //   const api = await this.getApi()
-    //   this.allTags = (await api.get('/api/edit/tag')).data.tags
-    // }
+    if (!this.allTags) {
+      const doc = await firebase.firestore().collection('tag').doc('all').get()
+      this.allTags = (doc.data() || {}).tags || []
+    }
 
-    // this.filteredTags = this.allTags!.filter((t) => {
-    //   return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-    // })
+    this.filteredTags = this.allTags!.filter((t) => {
+      return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+    })
   }
 
   openItem (it: any) {
     this.$router.push({
       path: '/edit',
       query: {
-        key: it.key
+        id: it.id
       }
     })
   }
@@ -255,22 +254,26 @@ export default class Query extends Vue {
     // })
   }
 
-  async onCtxChange (ctx: Record<string, any>) {
-    if (Array.isArray(ctx)) {
-      ctx = ctx.reduce((prev, k) => ({ ...prev, [k]: null }), {})
+  async onCtxChange (ctx: any) {
+    if (!ctx || typeof ctx !== 'object') {
+      return
     }
 
-    await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
+    if (Array.isArray(ctx)) {
+      ctx = ctx.reduce((prev, c) => ({ ...prev, [c]: null }), {})
+    }
+
+    await Promise.all(Object.entries<any>(ctx).map(async ([key, data]) => {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
-          // const api = await this.getApi(true)
-          // const r = await api.get('/api/edit/', {
-          //   params: {
-          //     key
-          //   }
-          // })
-          // this.ctx[key] = r.data
-          // this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+          const r = await firebase.firestore().collection('metadata').doc(key).get()
+          const data = r.data()
+
+          if (data) {
+            const { header, content } = new Matter().parse(data.markdown || '')
+            this.ctx[key] = header
+            this.ctx[key].markdown = content
+          }
         } else {
           if (typeof data === 'string') {
             this.ctx[key] = (await axios.get(data)).data
