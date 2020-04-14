@@ -21,6 +21,11 @@ const router = new VueRouter({
       path: '/edit',
       name: 'edit',
       component: () => import(/* webpackChunkName: "edit" */ '../views/Edit.vue')
+    },
+    {
+      path: '/browse',
+      name: 'browse',
+      component: () => import(/* webpackChunkName: "browse" */ '../views/Browse.vue')
     }
   ]
 })

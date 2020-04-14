@@ -51,7 +51,7 @@
         template(slot-scope="props")
           b-table-column(v-for="h in headers" :key="h.field" :field="h.field"
               :label="h.label" :width="h.width" :sortable="h.sortable")
-            span(v-else-if="Array.isArray(props.row[h.field])")
+            span(v-if="Array.isArray(props.row[h.field])")
               b-taglist
                 b-tag(v-for="t in props.row[h.field]" :key="t") {{t}}
             div(v-else style="max-height: 200px; overflow: scroll;")
@@ -211,14 +211,14 @@ export default class Query extends Vue {
   }
 
   async getFilteredTags (text: string) {
-    if (!this.allTags) {
-      const api = await this.getApi()
-      this.allTags = (await api.get('/api/edit/tag')).data.tags
-    }
+    // if (!this.allTags) {
+    //   const api = await this.getApi()
+    //   this.allTags = (await api.get('/api/edit/tag')).data.tags
+    // }
 
-    this.filteredTags = this.allTags!.filter((t) => {
-      return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
-    })
+    // this.filteredTags = this.allTags!.filter((t) => {
+    //   return t.toLocaleLowerCase().includes(text.toLocaleLowerCase())
+    // })
   }
 
   openItem (it: any) {
@@ -240,19 +240,19 @@ export default class Query extends Vue {
   }
 
   editTags () {
-    this.$nextTick(async () => {
-      const api = await this.getApi()
-      await api.patch('/api/edit/', {
-        keys: this.checked.map((el) => el.key),
-        set: {
-          tag: this.tagList
-        }
-      })
+    // this.$nextTick(async () => {
+    //   const api = await this.getApi()
+    //   await api.patch('/api/edit/', {
+    //     keys: this.checked.map((el) => el.key),
+    //     set: {
+    //       tag: this.tagList
+    //     }
+    //   })
 
-      this.isEditTagsDialog = false
+    //   this.isEditTagsDialog = false
 
-      this.load()
-    })
+    //   this.load()
+    // })
   }
 
   async onCtxChange (ctx: Record<string, any>) {
@@ -263,14 +263,14 @@ export default class Query extends Vue {
     await Promise.all(Object.entries(ctx).map(async ([key, data]) => {
       if (typeof data !== 'undefined' && !this.ctx[key]) {
         if (!data) {
-          const api = await this.getApi(true)
-          const r = await api.get('/api/edit/', {
-            params: {
-              key
-            }
-          })
-          this.ctx[key] = r.data
-          this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
+          // const api = await this.getApi(true)
+          // const r = await api.get('/api/edit/', {
+          //   params: {
+          //     key
+          //   }
+          // })
+          // this.ctx[key] = r.data
+          // this.ctx[key].markdown = new Matter().parse(r.data.markdown || '').content
         } else {
           if (typeof data === 'string') {
             this.ctx[key] = (await axios.get(data)).data
