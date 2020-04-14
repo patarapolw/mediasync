@@ -233,6 +233,7 @@ export default class Edit extends Vue {
       name: this.name,
       tag: this.tag,
       _rand: Math.random(),
+      _updatedAt: new Date(),
       ...header
     }
 
@@ -253,10 +254,10 @@ export default class Edit extends Vue {
         }
       })
     } else {
-      await firebase.firestore().collection('metadata').doc(this.id).set(content)
+      await firebase.firestore().collection('metadata').doc(this.id).update(content)
     }
 
-    await firebase.firestore().collection('tag').doc('all').set({
+    await firebase.firestore().collection('tag').doc('all').update({
       tags: this.allTags
     })
 

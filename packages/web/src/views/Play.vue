@@ -135,6 +135,7 @@ export default class Play extends Vue {
               url: downloadURL,
               _rand: Math.random(),
               _upload: true,
+              _updatedAt: new Date(),
               type: 'audio'
             })
 
@@ -149,7 +150,13 @@ export default class Play extends Vue {
     this.currentTrack = i = i || this.currentTrack
 
     if (this.wavesurfer && this.playlist[i]) {
-      this.wavesurfer.load(this.playlist[i].url)
+      const { key, url } = this.playlist[i]
+
+      this.wavesurfer.load(url)
+
+      firebase.firestore().collection('metadata').doc(key).update({
+        _updatedAt: new Date()
+      })
     }
   }
 }
