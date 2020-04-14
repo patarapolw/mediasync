@@ -1,5 +1,5 @@
 <template lang="pug">
-section.editor
+.container.editor
   .buttons.header-buttons
     div(style="flex-grow: 1;")
     b-button.is-info(@click="ctxReload()") Reload
@@ -27,9 +27,13 @@ section.editor
               allow-new open-on-focus :data="filteredTags" @focus="initFilteredTags" @typing="getFilteredTags"
             )
       codemirror(v-model="markdown" ref="codemirror" @input="onCmCodeChange")
-    .column.is-6(v-show="hasPreview")
-      div(frameborder="0" style="height: 100%; width: 100%; padding: 1em;")
-        div(ref="audio")
+    .column.is-6(
+      v-show="hasPreview"
+      style="height: calc(100vh - 60px); overflow-y: scroll;"
+      ref="preview"
+    )
+      div(style="width: 100%; padding: 1em; margin-bottom: 50px;")
+        audio(v-if="audioUrl" :src="audioUrl" controls autoplay loop style="width: 100%; margin-bottom: 1em;")
         .content(ref="output")
 </template>
 
@@ -41,7 +45,6 @@ import axios, { AxiosInstance } from 'axios'
 import firebase from 'firebase/app'
 import hbs from 'handlebars'
 import * as t from 'runtypes'
-import WaveSurfer from 'wavesurfer.js'
 
 import 'firebase/storage'
 import 'firebase/firebase-firestore'
@@ -71,7 +74,6 @@ export default class Edit extends Vue {
   hasPreview = false
   isEdited = false
   markdown = ''
-  scrollSize = 0
 
   tag: string[] = []
   filteredTags: string[] = []
@@ -86,6 +88,14 @@ export default class Edit extends Vue {
 
   get id () {
     return normalizeArray(this.$route.query.id) || ''
+  }
+
+  get audioUrl () {
+    const { type, url, autoplay } = this.matter.header
+
+    return (type === 'audio' && url && autoplay !== false)
+      ? url
+      : ''
   }
 
   get makeHtml () {
@@ -207,12 +217,16 @@ export default class Edit extends Vue {
     if (!isSet) {
       this.matter.header = {}
       this.markdown = ''
+      this.name = ''
       this.$set(this, 'tag', [])
     }
 
+    const title = document.getElementsByTagName('title')[0]
+    const t = title.getAttribute('data-title') || ''
+    title.innerText = this.name ? `${this.name} - ${t}` : t
+
     setTimeout(() => {
       this.isEdited = false
-      this.onAudioRef()
     }, 100)
   }
 
@@ -286,31 +300,11 @@ export default class Edit extends Vue {
     this.isEdited = true
   }
 
-  @Watch('$refs.audio')
-  onAudioRef () {
-    const audio = this.$refs.audio as HTMLDivElement
-
-    if (audio && this.matter.header.type === 'audio' && this.matter.header.url) {
-      const w = WaveSurfer.create({
-        container: audio
-      })
-      w.on('finish', () => {
-        w.play()
-      })
-      w.on('ready', () => {
-        w.play()
-      })
-      w.load(this.matter.header.url)
-    }
-  }
-
   async ctxReload () {
     const { header, content } = new Matter().parse(this.markdown)
     if (this.name) {
       this.ctx[this.name] = content
     }
-
-    this.onAudioRef()
 
     await this.onCtxChange(header.ref)
   }
@@ -347,7 +341,11 @@ export default class Edit extends Vue {
   }
 
   onScroll (evt: any) {
-    this.scrollSize = evt.target.scrollTop / (evt.target.scrollHeight - evt.target.clientHeight)
+    const preview = this.$refs.preview as HTMLDivElement
+    if (preview) {
+      const scrollSize = evt.target.scrollTop / (evt.target.scrollHeight - evt.target.clientHeight)
+      preview.scrollTop = scrollSize * (preview.scrollHeight - preview.clientHeight)
+    }
   }
 }
 </script>
@@ -371,6 +369,10 @@ export default class Edit extends Vue {
 
 .CodeMirror-scroll {
   min-height: calc(100vh - 200px);
+}
+
+.CodeMirror-lines {
+  margin-bottom: 50px;
 }
 
 .d-none {

@@ -14,7 +14,8 @@ export default class MakeHtml {
     backslashEscapesHTMLTags: true,
     emoji: true,
     literalMidWordUnderscores: true,
-    smoothLivePreview: true
+    smoothLivePreview: true,
+    simpleLineBreaks: true
   })
 
   hp: HyperPug

@@ -1,11 +1,13 @@
 <template lang="pug">
 main.container
   section
-    .container(ref="player")
+    audio(controls autoplay ref="player" style="width: 100%;" preload="metadata")
     b-menu
       b-menu-list(label="Playlist")
         .playlist
-          b-menu-item(v-for="f, i in playlist" :key="f.key" :label="f.name" @click="doPlay(i)" :active="currentTrack === i")
+          b-menu-item(v-for="f, i in playlist" :key="f.key" :label="f.name"
+            @click="doPlay(i)" :active="currentTrack === i")
+    .content(ref="output")
     b-menu
       b-menu-list(label="Upload new files")
       b-field(style="text-align: center;")
@@ -26,11 +28,14 @@ main.container
 <script lang="ts">
 import { Vue, Component, Watch } from 'vue-property-decorator'
 import firebase from 'firebase/app'
-import WaveSurfer from 'wavesurfer.js'
 import shortid from 'shortid'
+import hbs from 'handlebars'
 
 import 'firebase/storage'
 import 'firebase/firebase-firestore'
+
+import { Matter } from '../assets/make-html/matter'
+import MakeHtml from '../assets/make-html'
 
 @Component
 export default class Play extends Vue {
@@ -40,9 +45,11 @@ export default class Play extends Vue {
   dropFiles: File[] = []
   uploading: any[] = []
 
-  wavesurfer: WaveSurfer | null = null
+  doListenTimeout?: NodeJS.Timeout
 
-  async created () {
+  readonly matter = new Matter()
+
+  async mounted () {
     const allRefs = await firebase.firestore().collection('metadata')
       .orderBy('_rand').limit(10).get()
 
@@ -52,47 +59,13 @@ export default class Play extends Vue {
 
       this.playlist.unshift({
         key: r.id,
-        name: data.name,
-        url: data.url
+        ...data
       })
 
       firebase.firestore().collection('metadata').doc(r.id).set(data)
     })
-  }
 
-  mounted () {
-    this.initWavesurfer()
-    window.addEventListener('mousemove', this.initWavesurfer)
-    window.addEventListener('scroll', this.initWavesurfer)
-  }
-
-  beforeDestroy () {
-    if (this.wavesurfer) {
-      this.wavesurfer.destroy()
-    }
-
-    window.removeEventListener('mousemove', this.initWavesurfer)
-    window.removeEventListener('scroll', this.initWavesurfer)
-  }
-
-  async initWavesurfer () {
-    if (!this.wavesurfer) {
-      const w = this.wavesurfer = WaveSurfer.create({
-        container: this.$refs.player as HTMLElement
-      })
-      w.on('finish', () => {
-        this.currentTrack++
-        this.doPlay()
-      })
-
-      return new Promise((resolve, reject) => {
-        w.on('ready', () => {
-          w.play()
-          resolve()
-        })
-        w.on('error', reject)
-      })
-    }
+    this.doPlay(0)
   }
 
   @Watch('dropFiles')
@@ -144,8 +117,6 @@ export default class Play extends Vue {
           this.uploading = this.uploading.filter((u) => u.key !== randName)
 
           uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-            this.currentTrack = 0
-
             this.playlist.unshift({
               key: randName,
               name: f.name,
@@ -166,26 +137,78 @@ export default class Play extends Vue {
         })
       })
     }))
+
+    this.doPlay(0)
   }
 
   async doPlay (i?: number) {
-    this.currentTrack = i = i || this.currentTrack
-    await this.initWavesurfer()
+    if (typeof i !== 'undefined') {
+      this.currentTrack = i
+    }
 
-    if (this.wavesurfer && this.playlist[i]) {
-      const { key, url } = this.playlist[i]
-      console.log(key, url, i)
+    if (this.playlist[this.currentTrack]) {
+      const { key, type, url, markdown = '', name } = this.playlist[this.currentTrack]
 
-      this.wavesurfer.load(url)
-      this.wavesurfer.on('ready', () => {
-        if (this.wavesurfer) {
-          this.wavesurfer.play()
+      const title = document.getElementsByTagName('title')[0]
+      const t = title.getAttribute('data-title') || ''
+      title.innerText = name ? `${name} - ${t}` : t
+
+      const player = this.$refs.player as HTMLAudioElement
+      if (player && url && type === 'audio') {
+        player.src = url
+        player.play()
+
+        player.onended = () => {
+          this.currentTrack++
+          this.doPlay()
         }
-      })
 
-      firebase.firestore().collection('metadata').doc(key).update({
-        _updatedAt: new Date()
-      })
+        player.onloadedmetadata = () => {
+          let timeout = 15000 // Must listen for 15 seconds
+
+          if (player.duration && player.duration < 15) {
+            timeout = player.duration * 1000
+          }
+
+          if (this.doListenTimeout) {
+            clearTimeout(this.doListenTimeout)
+          }
+
+          this.doListenTimeout = setTimeout(() => {
+            firebase.firestore().collection('metadata').doc(key).update({
+              _updatedAt: new Date()
+            })
+          }, timeout)
+        }
+      } else {
+        const timeout = 15000 // Must listen for 15 seconds
+
+        // if (player.duration && player.duration < 15) {
+        //   timeout = player.duration * 1000
+        // }
+
+        if (this.doListenTimeout) {
+          clearTimeout(this.doListenTimeout)
+        }
+
+        this.doListenTimeout = setTimeout(() => {
+          firebase.firestore().collection('metadata').doc(key).update({
+            _updatedAt: new Date()
+          })
+        }, timeout)
+      }
+
+      const output = this.$refs.output as HTMLDivElement
+      if (output) {
+        const makeHtml = new MakeHtml(key)
+        const { header, content } = this.matter.parse(markdown)
+        makeHtml.patch(output, hbs.compile(content)({
+          // ...(this.name ? {
+          //   [this.name]: content
+          // } : {}),
+          // ...this.ctx
+        }))
+      }
     }
   }
 }
