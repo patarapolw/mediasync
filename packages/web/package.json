@@ -22,7 +22,7 @@
     "@types/showdown": "^1.9.3",
     "any-serialize": "^1.4.12",
     "axios": "^0.19.2",
-    "buefy": "^0.8.15",
+    "buefy": "^0.8.20",
     "codemirror": "^5.52.2",
     "core-js": "^3.6.4",
     "dayjs": "^1.8.24",
