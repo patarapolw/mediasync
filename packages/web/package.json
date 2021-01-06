@@ -21,7 +21,7 @@
     "@types/shortid": "^0.0.29",
     "@types/showdown": "^1.9.3",
     "any-serialize": "^1.4.12",
-    "axios": "^0.19.2",
+    "axios": "^0.21.1",
     "buefy": "^0.8.15",
     "codemirror": "^5.52.2",
     "core-js": "^3.6.4",
