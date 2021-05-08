@@ -28,7 +28,7 @@
     "dayjs": "^1.8.24",
     "firebase": "^7.14.0",
     "firebaseui": "^4.5.0",
-    "handlebars": "^4.7.6",
+    "handlebars": "^4.7.7",
     "htmlparser2": "^4.1.0",
     "hyperpug": "^1.1.1",
     "incremental-dom": "^0.7.0",
